@@ -687,18 +687,34 @@ header{background:rgba(23,10,20,.8);border-bottom:1px solid rgba(227,168,201,.14
 <section class="custom-view" id="info-view"><div class="page-shell" id="info-shell"></div></section>
 
 <section class="custom-view" id="account-view">
-  <div class="auth-shell">
+  <div class="page-shell">
     <button class="back-btn" onclick="showHome()">&larr; Back home</button>
-    <div class="auth-card">
-      <div class="auth-brand">THE NORTHSIDE</div>
-      <div class="page-kicker">Your account</div>
-      <h1 class="auth-title" id="acct-name">Hi.</h1>
-      <p class="auth-sub" id="acct-email"></p>
-      <p class="auth-sub">Order receipts and shipping updates are sent to this email address.</p>
-      <div class="page-actions" style="margin-top:8px">
-        <button class="btn btn-solid" onclick="showHome();scrollToSection('shop')">Keep shopping</button>
-        <button class="btn btn-outline" onclick="signOutUser()">Log out</button>
-      </div>
+    <div class="page-kicker">Your account</div>
+    <h1 class="page-title" id="acct-name">Hi.</h1>
+    <p class="page-lead" id="acct-email" style="margin-bottom:22px"></p>
+    <div class="acct-tabs" role="tablist">
+      <button type="button" class="active" data-tab="orders" onclick="acctTab('orders')">My orders</button>
+      <button type="button" data-tab="details" onclick="acctTab('details')">Delivery details</button>
+    </div>
+    <div class="acct-pane" id="acct-orders"></div>
+    <div class="acct-pane" id="acct-details" style="display:none">
+      <form class="co-card" onsubmit="saveProfile(event)">
+        <h2 class="co-h">Saved details</h2>
+        <div class="co-help">We use these to fill in checkout for you, so ordering takes seconds.</div>
+        <label>Full name<input id="pf-name" autocomplete="name" placeholder="Your full name"></label>
+        <label>Phone / WhatsApp<input id="pf-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+250 7XX XXX XXX"></label>
+        <label>Delivery address<input id="pf-address" autocomplete="street-address" placeholder="Street, area, landmark"></label>
+        <div class="co-two">
+          <label>City<input id="pf-city" autocomplete="address-level2" placeholder="Kigali"></label>
+          <label>Country<input id="pf-country" autocomplete="country-name" value="Rwanda"></label>
+        </div>
+        <button class="btn btn-solid co-submit" id="pf-save" type="submit">Save details</button>
+        <div class="auth-message" id="pf-message"></div>
+      </form>
+    </div>
+    <div class="page-actions" style="margin-top:28px">
+      <button class="btn btn-solid" onclick="showHome();scrollToSection('shop')">Keep shopping</button>
+      <button class="btn btn-outline" onclick="signOutUser()">Log out</button>
     </div>
   </div>
 </section>
@@ -738,6 +754,8 @@ header{background:rgba(23,10,20,.8);border-bottom:1px solid rgba(227,168,201,.14
           <label>Country<input id="co-country" required autocomplete="country-name" value="Rwanda"></label>
         </div>
         <label>Order notes (optional)<textarea id="co-notes" rows="2" placeholder="Anything we should know?"></textarea></label>
+        <label class="co-check" id="co-save-wrap" style="display:none"><input type="checkbox" id="co-save" checked> Save these details to my profile</label>
+        <div class="co-help" id="co-login-hint">Have an account? <button type="button" class="text-button" onclick="showView('login-view')">Log in</button> to fill this in automatically and see your orders later.</div>
         <h2 class="co-h">Payment</h2>
         <label>Payment method<select id="co-pay"></select></label>
         <div class="co-help" id="co-pay-help"></div>
@@ -1384,12 +1402,24 @@ function setNsUser(u){
 }
 function initAuth(){
   if(!NS_CONFIG.SUPABASE_URL||!NS_CONFIG.SUPABASE_ANON_KEY||!window.supabase)return;
-  sb=window.supabase.createClient(NS_CONFIG.SUPABASE_URL,NS_CONFIG.SUPABASE_ANON_KEY);
+  /* Did the email link bring an error (expired / already used)? Tell the person instead of silently staying logged out. */
+  const hp=new URLSearchParams((location.hash||'').replace(/^#/,'')),qp=new URLSearchParams(location.search);
+  const linkErr=hp.get('error_description')||qp.get('error_description');
+  const wasSignup=/type=signup/.test(location.hash);
+  sb=window.supabase.createClient(NS_CONFIG.SUPABASE_URL,NS_CONFIG.SUPABASE_ANON_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  if(linkErr){
+    try{history.replaceState(null,'',location.pathname)}catch(e){}
+    setTimeout(()=>{showView('login-view');nsMsg('login-message','That email link expired or was already used. If you already confirmed, just log in below.')},400);
+  }
   sb.auth.onAuthStateChange((ev,session)=>{
     setNsUser(session?session.user:null);
     if(ev==='PASSWORD_RECOVERY')setTimeout(()=>showView('reset-view'),0);
-    if(ev==='SIGNED_IN'&&/type=signup/.test(location.hash))setTimeout(()=>{showToast('Email confirmed. You are logged in.');showHome()},0);
+    if(ev==='SIGNED_IN'&&wasSignup){
+      try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}
+      setTimeout(()=>{showToast('Email confirmed. You are logged in.');showHome()},0);
+    }
   });
+  sb.auth.getSession().then(r=>{if(r&&r.data&&r.data.session)setNsUser(r.data.session.user)}).catch(()=>{});
 }
 async function handleSignup(e){
   e.preventDefault();if(!sb)return noBackend('signup-message');
@@ -1453,6 +1483,7 @@ function checkout(){
   sel.innerHTML='<option value="cod">Pay on delivery</option><option value="momo">Mobile Money (MTN / Airtel)</option>'+(hostedUrl()?'<option value="card">Card / Apple Pay / Google Pay</option>':'');
   sel.onchange=()=>{byId('co-pay-help').textContent=PAY_HELP[sel.value]||''};sel.onchange();
   if(nsUser&&nsUser.email&&!byId('co-email').value)byId('co-email').value=nsUser.email;
+  prefillCheckout();
   byId('co-message').textContent='';
   showView('checkout-view');
 }
@@ -1475,6 +1506,7 @@ async function placeOrder(e){
     const {data,error}=await sb.rpc('place_order',{p_items:items,p_customer:customer});
     if(error)throw error;
     const ref=data&&data.ref?data.ref:'';
+    if(nsUser&&byId('co-save')&&byId('co-save').checked){saveProfileRow({full_name:customer.name,phone:customer.phone,address:customer.address,city:customer.city,country:customer.country}).catch(()=>{})}
     cart=[];saveCart();
     const lead=byId('success-lead');
     if(lead)lead.textContent='Thank you for repping The Northside.'+(ref?' Your order number is '+ref+'.':'')+' We will contact you on '+customer.phone+' to confirm payment and delivery.';
@@ -1644,5 +1676,104 @@ html,body{overflow-x:clip;max-width:100%}
 .co-total{font-weight:800;font-size:17px;border-bottom:0}
 .co-submit{width:100%;min-height:52px}
 @media(max-width:820px){.co-grid{grid-template-columns:1fr}.co-summary{position:static;order:-1}.co-two{grid-template-columns:1fr}.co-card{padding:22px 18px;border-radius:20px}}
+</style>
+
+<script>
+/* ===== Profile area: order history + saved delivery details ===== */
+let nsProfile=null;
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const _showView=showView;
+showView=function(id){
+  if(id==='account-view'&&!nsUser){_showView('login-view');return}
+  _showView(id);
+  if(id==='account-view')refreshAccount();
+};
+function acctTab(t){
+  document.querySelectorAll('.acct-tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
+  byId('acct-orders').style.display=t==='orders'?'':'none';
+  byId('acct-details').style.display=t==='details'?'':'none';
+}
+async function loadProfile(force){
+  if(!sb||!nsUser)return null;
+  if(nsProfile&&!force&&nsProfile.user_id===nsUser.id)return nsProfile;
+  const {data,error}=await sb.from('profiles').select('*').eq('user_id',nsUser.id).maybeSingle();
+  if(error){console.error(error);return null}
+  nsProfile=data||null;return nsProfile;
+}
+function fillProfileForm(p){
+  const n=(nsUser&&nsUser.user_metadata&&nsUser.user_metadata.full_name)||'';
+  byId('pf-name').value=(p&&p.full_name)||n;
+  byId('pf-phone').value=(p&&p.phone)||'';
+  byId('pf-address').value=(p&&p.address)||'';
+  byId('pf-city').value=(p&&p.city)||'';
+  byId('pf-country').value=(p&&p.country)||'Rwanda';
+}
+async function refreshAccount(){
+  acctTab('orders');byId('pf-message').textContent='';
+  fillProfileForm(null);
+  loadOrders();
+  const p=await loadProfile(true);fillProfileForm(p);
+}
+const STATUS_LABEL={pending:'Received',confirmed:'Confirmed',paid:'Paid',shipped:'On the way',delivered:'Delivered',cancelled:'Cancelled'};
+const PAY_LABEL={cod:'Pay on delivery',momo:'Mobile Money',card:'Card'};
+async function loadOrders(){
+  const el=byId('acct-orders');
+  if(!sb){el.innerHTML='<div class="co-card"><div class="co-help">Orders are not connected yet.</div></div>';return}
+  el.innerHTML='<div class="co-card"><div class="co-help">Loading your orders\u2026</div></div>';
+  const {data,error}=await sb.from('store_orders').select('ref,created_at,status,total,payment_method,items').order('created_at',{ascending:false}).limit(50);
+  if(error){console.error(error);el.innerHTML='<div class="co-card"><div class="co-help">We could not load your orders. Please try again in a moment.</div></div>';return}
+  if(!data||!data.length){
+    el.innerHTML='<div class="co-card"><h2 class="co-h">No orders yet</h2><div class="co-help">When you place an order while logged in, it shows up here.</div><button class="btn btn-solid" style="align-self:flex-start" onclick="showHome();scrollToSection(\'shop\')">Start shopping</button></div>';
+    return;
+  }
+  el.innerHTML=data.map(o=>{
+    const d=new Date(o.created_at).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});
+    const lines=(Array.isArray(o.items)?o.items:[]).map(i=>'<div class="co-row"><span>'+esc(i.name)+'<small>Size '+esc(i.size)+' \u00d7 '+esc(i.qty)+'</small></span><span>$'+Number(i.line_total).toFixed(2)+'</span></div>').join('');
+    return '<div class="co-card order-card"><div class="order-head"><div><div class="order-ref">'+esc(o.ref)+'</div><div class="co-help">'+esc(d)+' \u00b7 '+esc(PAY_LABEL[o.payment_method]||o.payment_method)+'</div></div><span class="order-pill st-'+esc(o.status)+'">'+esc(STATUS_LABEL[o.status]||o.status)+'</span></div>'+lines+'<div class="co-row co-total"><span>Total</span><span>$'+Number(o.total).toFixed(2)+'</span></div></div>';
+  }).join('');
+}
+async function saveProfileRow(v){
+  if(!sb||!nsUser)return {error:{message:'Not logged in'}};
+  const row=Object.assign({user_id:nsUser.id,updated_at:new Date().toISOString()},v);
+  const res=await sb.from('profiles').upsert(row,{onConflict:'user_id'});
+  if(!res.error)nsProfile=Object.assign({},nsProfile||{},row);
+  return res;
+}
+async function saveProfile(e){
+  e.preventDefault();
+  const btn=byId('pf-save'),old=btn.textContent;btn.disabled=true;btn.textContent='Saving\u2026';
+  const v={full_name:byId('pf-name').value.trim(),phone:byId('pf-phone').value.trim(),address:byId('pf-address').value.trim(),city:byId('pf-city').value.trim(),country:byId('pf-country').value.trim()};
+  const {error}=await saveProfileRow(v);
+  btn.disabled=false;btn.textContent=old;
+  if(error){console.error(error);nsMsg('pf-message','Could not save. Please try again.');return}
+  if(v.full_name){try{const r=await sb.auth.updateUser({data:{full_name:v.full_name}});if(r&&r.data&&r.data.user)setNsUser(r.data.user)}catch(x){}}
+  nsMsg('pf-message','Saved. Checkout will now fill these in for you.',true);showToast('Details saved');
+}
+async function prefillCheckout(){
+  const wrap=byId('co-save-wrap'),hint=byId('co-login-hint');
+  if(wrap)wrap.style.display=nsUser?'':'none';
+  if(hint)hint.style.display=nsUser?'none':'';
+  if(!nsUser)return;
+  const p=await loadProfile(false);
+  const set=(id,val)=>{const el=byId(id);if(el&&!el.value&&val)el.value=val};
+  set('co-name',(p&&p.full_name)||(nsUser.user_metadata&&nsUser.user_metadata.full_name));
+  set('co-phone',p&&p.phone);set('co-address',p&&p.address);set('co-city',p&&p.city);
+  if(p&&p.country)byId('co-country').value=p.country;
+}
+</script>
+
+<style id="ns-account-ui">
+.acct-tabs{display:flex;gap:8px;margin:0 0 20px;flex-wrap:wrap}
+.acct-tabs button{min-height:44px;padding:10px 20px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;font-size:13px;letter-spacing:1.2px;text-transform:uppercase;cursor:pointer}
+.acct-tabs button.active{background:var(--grad,var(--accent));color:#fff;border-color:transparent}
+.acct-pane{display:flex;flex-direction:column;gap:16px;max-width:760px}
+.order-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.order-ref{font-weight:800;font-size:17px;letter-spacing:1px}
+.order-pill{font-size:11px;letter-spacing:1.3px;text-transform:uppercase;padding:6px 12px;border-radius:999px;background:#2b2f3a;color:#e5e7eb;white-space:nowrap}
+.order-pill.st-pending{background:#4b3a12;color:#fde68a}.order-pill.st-confirmed,.order-pill.st-paid{background:#12361f;color:#86efac}
+.order-pill.st-shipped{background:#16304a;color:#93c5fd}.order-pill.st-delivered{background:#12361f;color:#86efac}.order-pill.st-cancelled{background:#4a1620;color:#fda4af}
+.co-card label.co-check{display:flex;align-items:center;gap:10px;text-transform:none;letter-spacing:0;font-size:14px;color:var(--text)}
+.co-card label.co-check input{width:auto;margin:0}
+@media(max-width:430px){.acct-tabs button{flex:1;padding:10px 12px;font-size:12px}}
 </style>
 </html>
