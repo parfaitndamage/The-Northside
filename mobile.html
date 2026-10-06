@@ -370,6 +370,23 @@ header{background:rgba(23,10,20,.8);border-bottom:1px solid rgba(227,168,201,.14
 .how-steps b{flex:0 0 28px;height:28px;border-radius:50%;background:#9c2f74;color:#fff;display:grid;place-items:center;font-size:14px}
 @media(min-width:821px){.how-steps{justify-content:center;gap:40px}.how-steps div{flex:0 0 auto;font-size:15px}}
 </style>
+<style>.mobile-bottom-nav{display:none!important}
+.menu-toggle{display:flex!important;align-items:center;gap:8px;padding:8px 13px!important;border:1px solid rgba(227,168,201,.45)!important;border-radius:999px;background:linear-gradient(135deg,#9c2f74,#7a2160)!important;color:#fff!important;font-size:12px!important;letter-spacing:2px;text-transform:uppercase;font-weight:700}
+.menu-toggle i{display:block;width:16px;height:12px;background:linear-gradient(#fff 0 0) 0 0/100% 2px no-repeat,linear-gradient(#fff 0 0) 0 5px/100% 2px no-repeat,linear-gradient(#fff 0 0) 0 10px/100% 2px no-repeat}
+.menu-panel{position:fixed;right:12px;top:78px;z-index:3000;width:230px;background:#1f0f1c;border:1px solid rgba(227,168,201,.3);border-radius:18px;padding:8px;box-shadow:0 24px 60px rgba(0,0,0,.55);display:none}
+.menu-panel.open{display:block}
+.menu-panel button{display:flex;justify-content:space-between;align-items:center;width:100%;background:none;border:0;color:#fff;font-size:15px;letter-spacing:2px;text-transform:uppercase;padding:15px 16px;border-radius:12px;text-align:left}
+.menu-panel button+button{border-top:1px solid rgba(255,255,255,.07)}
+.menu-panel button:active{background:rgba(156,47,116,.35)}
+.menu-panel .mcount{background:#9c2f74;border-radius:999px;font-size:12px;padding:2px 9px;letter-spacing:0}
+.nav{gap:8px!important}.logo-image,.logo-image img{width:118px!important;height:30px!important;flex:0 0 auto}
+.navicons{gap:8px!important}.navicons button{font-size:12px!important;letter-spacing:.5px!important;padding:6px 4px!important}
+.hero-title{font-size:clamp(28px,9vw,40px)!important;letter-spacing:-1px!important;line-height:1!important}
+.hero-eyebrow{font-size:10px!important;letter-spacing:3px!important}
+.hero-content{padding:0 22px 40px!important}
+.hero-cta .btn{padding:14px 18px!important;font-size:11px!important;letter-spacing:2px!important}
+@media(max-width:360px){.menu-toggle{padding:8px 11px!important;letter-spacing:1px}.navicons button[onclick*="toggleCart"]{display:none!important}.hero-cta{gap:10px!important}.hero-cta .btn{padding:13px 14px!important;font-size:10px!important;letter-spacing:1px!important;white-space:nowrap}}
+</style>
 </head>
 <style>.mobile-site .navlinks{display:none!important}.mobile-site .navicons button:nth-child(-n+2){display:none!important}.mobile-site .menu-toggle{display:block}.mobile-site .mobile-bottom-nav{display:grid}</style>
 <style>
@@ -449,7 +466,7 @@ header{background:rgba(23,10,20,.8);border-bottom:1px solid rgba(227,168,201,.14
         Cart <span class="cart-count" id="cart-count">0</span>
       </button>
     </div>
-    <button class="menu-toggle" aria-label="Open menu" onclick="toggleMobileNav()">&#9776;</button>
+    <button class="menu-toggle" aria-label="Open menu" onclick="toggleMobileNav()"><i></i>Menu</button>
   </div>
   <div class="search-bar" id="search-bar">
     <div class="search-inner">
@@ -1796,4 +1813,18 @@ async function prefillCheckout(){
 .co-card label.co-check input{width:auto;margin:0}
 @media(max-width:430px){.acct-tabs button{flex:1;padding:10px 12px;font-size:12px}}
 </style>
+<div class="menu-panel" id="menu-panel">
+<button onclick="menuGo('new')">New</button>
+<button onclick="menuGo('shop')">Shop</button>
+<button onclick="menuGo('cart')">Cart <span class="mcount" id="menu-count">0</span></button>
+<button onclick="menuGo('account')">Account</button>
+</div>
+<script>
+function toggleMobileNav(){document.getElementById('menu-panel').classList.toggle('open');document.getElementById('menu-count').textContent=document.getElementById('cart-count').textContent}
+function menuGo(w){document.getElementById('menu-panel').classList.remove('open');
+ if(w==='new'||w==='shop'){showHome();scrollToSection(w)}
+ else if(w==='cart'){toggleCart(true)}
+ else{showView(typeof nsUser!=='undefined'&&nsUser?'account-view':'login-view')}}
+document.addEventListener('click',e=>{const p=document.getElementById('menu-panel');if(p.classList.contains('open')&&!p.contains(e.target)&&!e.target.closest('.menu-toggle'))p.classList.remove('open')});
+</script>
 </html>
