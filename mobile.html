@@ -358,6 +358,18 @@ header{background:rgba(23,10,20,.8);border-bottom:1px solid rgba(227,168,201,.14
 #nl-message{margin-top:8px;font-size:12px;max-width:320px}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 </style>
+<style>.card-rwf{display:block;font-size:.8em;font-weight:600;color:#d9b6c8;margin-top:2px;letter-spacing:.02em}.cart-total span:last-child{text-align:right;font-weight:700}</style>
+<style>
+.orb,.ring{display:none!important}
+.trust-strip,.marquee{display:none!important}
+.mobile-bottom-nav button>span:first-child{display:none}
+.hero{min-height:480px!important;height:68vh!important}
+.hero-title{-webkit-text-fill-color:#fff!important;background:none!important;animation:none!important}
+.how-steps{display:flex;gap:10px;padding:18px 16px;background:#170a14;border-bottom:1px solid rgba(255,255,255,.08);overflow-x:auto}
+.how-steps div{flex:1 0 140px;display:flex;align-items:center;gap:10px;font-size:13px;line-height:1.3;color:#e8d5df}
+.how-steps b{flex:0 0 28px;height:28px;border-radius:50%;background:#9c2f74;color:#fff;display:grid;place-items:center;font-size:14px}
+@media(min-width:821px){.how-steps{justify-content:center;gap:40px}.how-steps div{flex:0 0 auto;font-size:15px}}
+</style>
 </head>
 <style>.mobile-site .navlinks{display:none!important}.mobile-site .navicons button:nth-child(-n+2){display:none!important}.mobile-site .menu-toggle{display:block}.mobile-site .mobile-bottom-nav{display:grid}</style>
 <style>
@@ -470,18 +482,7 @@ header{background:rgba(23,10,20,.8);border-bottom:1px solid rgba(227,168,201,.14
   </div>
 </section>
 
-<div class="marquee">
-  <div class="marquee-track">
-    <span>FREE SHIPPING OVER $99.99</span>
-    <span>HOODIES $18.99</span>
-    <span>TEES $9.99</span>
-    <span>REP THE NORTHSIDE</span>
-    <span>FREE SHIPPING OVER $99.99</span>
-    <span>HOODIES $18.99</span>
-    <span>TEES $9.99</span>
-    <span>REP THE NORTHSIDE</span>
-  </div>
-</div>
+<div class="how-steps"><div><b>1</b><span>Create an account</span></div><div><b>2</b><span>Pick your size and add to cart</span></div><div><b>3</b><span>Pay with MoMo, Airtel or card</span></div></div>
 
 <section id="new">
   <div class="section-head">
@@ -491,7 +492,7 @@ header{background:rgba(23,10,20,.8);border-bottom:1px solid rgba(227,168,201,.14
   <div class="grid" id="new-grid"></div>
 </section>
 
-<section class="banner" style="max-width:none;">
+<section class="banner" style="display:none">
   <div class="banner-title">The Northside isn't a brand. It's where we're from.</div>
   <div class="banner-sub">Every piece is made for the block, the city, and the people who rep it every day.</div>
   <a onclick="scrollToSection('shop')" class="btn btn-solid">Shop the collection</a>
@@ -753,11 +754,12 @@ header{background:rgba(23,10,20,.8);border-bottom:1px solid rgba(227,168,201,.14
           <label>City<input id="co-city" required autocomplete="address-level2" placeholder="Kigali"></label>
           <label>Country<input id="co-country" required autocomplete="country-name" value="Rwanda"></label>
         </div>
-        <label>Order notes (optional)<textarea id="co-notes" rows="2" placeholder="Anything we should know?"></textarea></label>
+        <label>Delivery instructions / landmark<textarea id="co-notes" required rows="2" placeholder="e.g. Blue gate, next to the pharmacy"></textarea></label>
         <label class="co-check" id="co-save-wrap" style="display:none"><input type="checkbox" id="co-save" checked> Save these details to my profile</label>
         <div class="co-help" id="co-login-hint">Have an account? <button type="button" class="text-button" onclick="showView('login-view')">Log in</button> to fill this in automatically and see your orders later.</div>
         <h2 class="co-h">Payment</h2>
-        <label>Payment method<select id="co-pay"></select></label>
+        <label>Payment method<select id="co-pay" required></select></label>
+        <label id="co-momo-wrap" style="display:none"><span id="co-momo-label">Mobile money number</span><input id="co-momo" type="tel" inputmode="tel" placeholder="07X XXX XXXX"></label>
         <div class="co-help" id="co-pay-help"></div>
         <button class="btn btn-solid co-submit" id="co-submit" type="submit">Place order</button>
         <div class="auth-message" id="co-message"></div>
@@ -879,7 +881,7 @@ header{background:rgba(23,10,20,.8);border-bottom:1px solid rgba(227,168,201,.14
   <div class="cart-foot" id="cart-foot">
     <div class="cart-total"><span>Subtotal</span><span id="cart-subtotal">$0.00</span></div>
     <button class="btn btn-solid" id="checkout-btn" style="width:100%;" onclick="checkout()">Checkout</button>
-    <div class="pay-note">Pay on delivery or Mobile Money (MTN / Airtel)</div>
+    <div class="pay-note">Pay with MTN MoMo, Airtel Money or credit card</div>
   </div>
 </div>
 
@@ -894,6 +896,14 @@ header{background:rgba(23,10,20,.8);border-bottom:1px solid rgba(227,168,201,.14
    The front photo is a real embedded image; the other two are placeholders
    ready for you to swap in real back/side photos later (see note at top
    of this file's HTML). `filterCat` powers search + the category chips. */
+/* ===== Currency: USD + Rwandan francs (always rounded UP, no decimals) ===== */
+const RWF_PER_USD=1460; /* change this one number to update every RWF price */
+function rwfOf(u){return Math.ceil(Math.round(Number(u)*RWF_PER_USD*1e6)/1e6)}
+function tidyChips(){document.querySelectorAll('.chip[data-cat]').forEach(c=>{const k=c.dataset.cat;c.style.display=(k==='all'||products.some(p=>p.filterCat===k))?'':'none'})}
+addEventListener('DOMContentLoaded',tidyChips);
+function money(u){return '$'+Number(u).toFixed(2)+' \u00b7 '+rwfOf(u).toLocaleString('en-US')+' RWF'}
+function cardPrice(p){return p.price===null||p.price===undefined?p.priceLabel:'$'+Number(p.price).toFixed(2)+'<small class="card-rwf">'+rwfOf(p.price).toLocaleString('en-US')+' RWF</small>'}
+function plabel(p){return p.price===null||p.price===undefined?p.priceLabel:money(p.price)}
 let products = [
   { id:1, name:"White Hoodie", displayCat:"Hoodies", filterCat:"hoodies", price:18.99, priceLabel:"$18.99", isNew:true, badge:"New", sizes:["S","M","L","XL"], images:["images/1.jpeg","images/1-back.png","images/1-details.jpeg"] },
   { id:2, name:"Red T-Shirt", displayCat:"T-Shirts", filterCat:"t-shirts", price:9.99, priceLabel:"$9.99", isNew:false, badge:null, sizes:["S","M","L","XL"], images:["images/2.jpeg","images/2-back.jpeg","images/2-details.jpeg"] },
@@ -932,7 +942,7 @@ function cardHTML(p){
     '<div class="card-info">' +
       '<div class="card-cat">' + p.displayCat + '</div>' +
       '<div class="card-name">' + p.name + '</div>' +
-      '<div class="card-price">' + p.priceLabel + '</div>' +
+      '<div class="card-price">' + cardPrice(p) + '</div>' +
     '</div>' +
   '</div>';
 }
@@ -1035,7 +1045,7 @@ function openProduct(id){
 
   document.getElementById('pd-cat').textContent = p.displayCat;
   document.getElementById('pd-name').textContent = p.name;
-  document.getElementById('pd-price').textContent = p.priceLabel;
+  document.getElementById('pd-price').textContent = plabel(p);
   document.getElementById('pd-desc').textContent = descriptions[p.filterCat] || '';
   document.getElementById('pd-qty').textContent = '1';
 
@@ -1153,6 +1163,7 @@ function saveCart(){
 function addCurrentToCart(){
   const p = currentProduct;
   if(!p) return;
+  if(!nsUser){showToast('Please log in or create an account to add items to your cart.');showView('login-view');return}
   if(p.price === null){
     showToast("We'll email you when " + p.name + " drops.");
     return;
@@ -1194,7 +1205,7 @@ function updateCartUI(){
         '<img src="' + i.img + '" alt="' + i.name + '">' +
         '<div class="cart-item-info">' +
           '<div class="cart-item-name">' + i.name + '</div>' +
-          '<div class="cart-item-meta">Size: ' + i.size + ' &middot; $' + i.price.toFixed(2) + '</div>' +
+          '<div class="cart-item-meta">Size: ' + i.size + ' &middot; ' + money(i.price) + '</div>' +
           '<div class="cart-item-qty">' +
             '<button onclick="changeCartQty(\'' + i.key + '\',-1)">&minus;</button>' +
             '<span>' + i.qty + '</span>' +
@@ -1207,7 +1218,7 @@ function updateCartUI(){
   }
 
   const subtotal = cart.reduce((sum,i) => sum + i.price * i.qty, 0);
-  document.getElementById('cart-subtotal').textContent = '$' + subtotal.toFixed(2);
+  document.getElementById('cart-subtotal').textContent = money(subtotal);
 }
 
 function toggleCart(force){
@@ -1307,7 +1318,7 @@ function cardHTML(p){
   return '<div class="card" tabindex="0" onclick="openProduct('+p.id+')" onkeydown="if(event.key===\'Enter\')openProduct('+p.id+')"><div class="card-img">'+b+
    '<img class="'+('')+'" loading="lazy" src="'+p.img+'" alt="'+p.name+'" onerror="this.parentElement.classList.add(\'noimg\')">'+
    '<span class="card-quick">'+(p.price===null?'Get notified':'View piece')+'</span></div>'+
-   '<div class="card-info"><div class="card-cat">'+p.displayCat+'</div><div class="card-name">'+p.name+'</div><div class="card-price">'+p.priceLabel+'</div></div></div>';
+   '<div class="card-info"><div class="card-cat">'+p.displayCat+'</div><div class="card-name">'+p.name+'</div><div class="card-price">'+cardPrice(p)+'</div></div></div>';
 }
 /* 4D: pointer tilt + glare on cards, lookbook and story image */
 if(!RM){
@@ -1322,7 +1333,7 @@ if(!RM){
   ['pointerup','pointercancel','blur'].forEach(ev=>addEventListener(ev,()=>{if(cur){rst(cur);cur=null}}));
   const hero=document.querySelector('.hero');
   if(hero){
-    hero.insertAdjacentHTML('beforeend','<i class="orb o1"></i><i class="orb o2"></i><i class="ring"></i>');
+    
     hero.addEventListener('pointermove',e=>{const r=hero.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
       hero.style.setProperty('--px',(x*30).toFixed(1)+'px');hero.style.setProperty('--py',(y*20).toFixed(1)+'px');
       hero.style.setProperty('--ry',(x*8).toFixed(2)+'deg');hero.style.setProperty('--rx',(-y*6).toFixed(2)+'deg')},{passive:true});
@@ -1335,7 +1346,7 @@ const INFO={
  faq:{k:'Help',t:'Questions, answered.',l:'The quick answers to what customers ask us most.',faq:[
   ['How do I choose my size?','Check the size guide for body measurements. Our hoodies have a boxy fit, so size down if you prefer a closer cut.'],
   ['When does the bomber jacket drop?','Soon. Sign up on the site and you will be first to hear about it.'],
-  ['Do you ship worldwide?','Yes. Orders over $99.99 ship free. See Shipping & returns for details.'],
+  ['Do you ship worldwide?','Yes. Orders over $99.99 (145,986 RWF) ship free. See Shipping & returns for details.'],
   ['Are drops limited?','Yes. Every release is a small run, and sold-out pieces may not return.'],
   ['How do I create an account?','Use Sign up in the header. Your profile keeps you ready for the next drop.']]},
  shipping:{k:'Delivery',t:'Shipping & returns.',l:'Clear, simple and built around the customer.',blocks:[
@@ -1470,18 +1481,20 @@ function accountNav(){showView(nsUser?'account-view':'login-view')}
 function cartTotal(){return cart.reduce((s,i)=>s+i.price*i.qty,0)}
 function hostedUrl(){return NS_CONFIG.CHECKOUT_URL||(NS_CONFIG.PAYMENTS_LIVE&&NS_CONFIG.SUPABASE_URL?NS_CONFIG.SUPABASE_URL.replace(/\/$/,'')+'/functions/v1/create-checkout':'')}
 const PAY_HELP={
-  cod:'Pay in cash or by mobile money when your order is delivered.',
-  momo:'We message you on WhatsApp / SMS with the Mobile Money number to pay. Your order is packed once payment is confirmed.',
-  card:'You will be taken to a secure payment page.'
+  momo:'Enter your MTN MoMo number (078 / 079). We send the payment request to that number. Your order is packed once payment is confirmed.',
+  airtel:'Enter your Airtel Money number (072 / 073). We send the payment request to that number. Your order is packed once payment is confirmed.',
+  card:'Pay by credit card. Your card details are entered on a secure payment page, never on this site.'
 };
+const MM_RE={momo:/^(?:\+?250|0)?7[89]\d{7}$/,airtel:/^(?:\+?250|0)?7[23]\d{7}$/};
 function checkout(){
+  if(!nsUser){toggleCart(false);showToast('Please log in to check out.');showView('login-view');return}
   if(!cart.length){showToast('Your cart is empty');return}
   toggleCart(false);
-  byId('co-items').innerHTML=cart.map(i=>'<div class="co-row"><span>'+i.name+'<small>Size '+i.size+' \u00d7 '+i.qty+'</small></span><span>$'+(i.price*i.qty).toFixed(2)+'</span></div>').join('');
-  byId('co-total').textContent='$'+cartTotal().toFixed(2);
+  byId('co-items').innerHTML=cart.map(i=>'<div class="co-row"><span>'+i.name+'<small>Size '+i.size+' \u00d7 '+i.qty+'</small></span><span>'+money(i.price*i.qty)+'</span></div>').join('');
+  byId('co-total').textContent=money(cartTotal());
   const sel=byId('co-pay');
-  sel.innerHTML='<option value="cod">Pay on delivery</option><option value="momo">Mobile Money (MTN / Airtel)</option>'+(hostedUrl()?'<option value="card">Card / Apple Pay / Google Pay</option>':'');
-  sel.onchange=()=>{byId('co-pay-help').textContent=PAY_HELP[sel.value]||''};sel.onchange();
+  sel.innerHTML='<option value="">Choose a payment method</option><option value="momo">MTN MoMo (Mobile Money)</option><option value="airtel">Airtel Money</option><option value="card">Credit card</option>';
+  sel.onchange=()=>{const mm=sel.value==='momo'||sel.value==='airtel';byId('co-pay-help').textContent=PAY_HELP[sel.value]||'';byId('co-momo-wrap').style.display=mm?'':'none';byId('co-momo').required=mm;byId('co-momo-label').textContent=sel.value==='airtel'?'Airtel Money number':'MTN MoMo number'};sel.value='';sel.onchange();
   if(nsUser&&nsUser.email&&!byId('co-email').value)byId('co-email').value=nsUser.email;
   prefillCheckout();
   byId('co-message').textContent='';
@@ -1489,12 +1502,19 @@ function checkout(){
 }
 async function placeOrder(e){
   e.preventDefault();
+  if(!nsUser){showToast('Please log in to place an order.');showView('login-view');return}
   if(!cart.length){showToast('Your cart is empty');return}
   const btn=byId('co-submit'),old=btn.textContent,method=byId('co-pay').value;
+  {const v=id=>byId(id).value.trim(),bad=m=>nsMsg('co-message',m);
+   if(!v('co-name')||!v('co-email')||!v('co-phone')||!v('co-address')||!v('co-city')||!v('co-country')||!v('co-notes'))return bad('Please fill in every field.');
+   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v('co-email')))return bad('Please enter a valid email address.');
+   if(!/^\+?[0-9 ]{9,15}$/.test(v('co-phone')))return bad('Please enter a valid phone number.');
+   if(!MM_RE[method]&&method!=='card')return bad('Please choose a payment method.');
+   if(MM_RE[method]&&!MM_RE[method].test(v('co-momo').replace(/[\s-]/g,'')))return bad(method==='airtel'?'Enter a valid Airtel Money number (072 / 073).':'Enter a valid MTN MoMo number (078 / 079).');}
   const items=cart.map(i=>({id:i.id,size:i.size,qty:i.qty}));
   btn.disabled=true;btn.textContent='Placing order\u2026';
   try{
-    if(method==='card'){
+    if(method==='card'&&hostedUrl()){
       const url=hostedUrl();
       const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json',apikey:NS_CONFIG.SUPABASE_ANON_KEY,Authorization:'Bearer '+NS_CONFIG.SUPABASE_ANON_KEY},body:JSON.stringify({items,email:byId('co-email').value.trim()})});
       const d=await r.json().catch(()=>({}));
@@ -1502,7 +1522,7 @@ async function placeOrder(e){
       location.href=d.url;return;
     }
     if(!sb)throw new Error('Orders are not connected yet. Please try again shortly.');
-    const customer={name:byId('co-name').value.trim(),email:byId('co-email').value.trim().toLowerCase(),phone:byId('co-phone').value.trim(),address:byId('co-address').value.trim(),city:byId('co-city').value.trim(),country:byId('co-country').value.trim(),notes:byId('co-notes').value.trim(),payment_method:method};
+    const customer={name:byId('co-name').value.trim(),email:byId('co-email').value.trim().toLowerCase(),phone:byId('co-phone').value.trim(),address:byId('co-address').value.trim(),city:byId('co-city').value.trim(),country:byId('co-country').value.trim(),notes:byId('co-notes').value.trim(),payment_method:method,payment_phone:byId('co-momo').value.replace(/[\s-]/g,'')};
     const {data,error}=await sb.rpc('place_order',{p_items:items,p_customer:customer});
     if(error)throw error;
     const ref=data&&data.ref?data.ref:'';
@@ -1554,7 +1574,7 @@ async function loadProducts(){
     isNew:r.is_new,badge:r.badge,sizes:r.sizes,
     images:(r.images&&r.images.length?r.images:[r.img]),img:r.img
   }));
-  renderNewArrivals();renderShop();
+  renderNewArrivals();renderShop();tidyChips();
 }
 
 
@@ -1715,7 +1735,7 @@ async function refreshAccount(){
   const p=await loadProfile(true);fillProfileForm(p);
 }
 const STATUS_LABEL={pending:'Received',confirmed:'Confirmed',paid:'Paid',shipped:'On the way',delivered:'Delivered',cancelled:'Cancelled'};
-const PAY_LABEL={cod:'Pay on delivery',momo:'Mobile Money',card:'Card'};
+const PAY_LABEL={cod:'Pay on delivery',momo:'MTN MoMo',airtel:'Airtel Money',card:'Credit card'};
 async function loadOrders(){
   const el=byId('acct-orders');
   if(!sb){el.innerHTML='<div class="co-card"><div class="co-help">Orders are not connected yet.</div></div>';return}
@@ -1728,8 +1748,8 @@ async function loadOrders(){
   }
   el.innerHTML=data.map(o=>{
     const d=new Date(o.created_at).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'});
-    const lines=(Array.isArray(o.items)?o.items:[]).map(i=>'<div class="co-row"><span>'+esc(i.name)+'<small>Size '+esc(i.size)+' \u00d7 '+esc(i.qty)+'</small></span><span>$'+Number(i.line_total).toFixed(2)+'</span></div>').join('');
-    return '<div class="co-card order-card"><div class="order-head"><div><div class="order-ref">'+esc(o.ref)+'</div><div class="co-help">'+esc(d)+' \u00b7 '+esc(PAY_LABEL[o.payment_method]||o.payment_method)+'</div></div><span class="order-pill st-'+esc(o.status)+'">'+esc(STATUS_LABEL[o.status]||o.status)+'</span></div>'+lines+'<div class="co-row co-total"><span>Total</span><span>$'+Number(o.total).toFixed(2)+'</span></div></div>';
+    const lines=(Array.isArray(o.items)?o.items:[]).map(i=>'<div class="co-row"><span>'+esc(i.name)+'<small>Size '+esc(i.size)+' \u00d7 '+esc(i.qty)+'</small></span><span>'+money(i.line_total)+'</span></div>').join('');
+    return '<div class="co-card order-card"><div class="order-head"><div><div class="order-ref">'+esc(o.ref)+'</div><div class="co-help">'+esc(d)+' \u00b7 '+esc(PAY_LABEL[o.payment_method]||o.payment_method)+'</div></div><span class="order-pill st-'+esc(o.status)+'">'+esc(STATUS_LABEL[o.status]||o.status)+'</span></div>'+lines+'<div class="co-row co-total"><span>Total</span><span>'+money(o.total)+'</span></div></div>';
   }).join('');
 }
 async function saveProfileRow(v){
